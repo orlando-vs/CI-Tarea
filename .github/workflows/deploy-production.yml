@@ -4,9 +4,38 @@ on:
   workflow_dispatch:
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install dependencies
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: Build artifact
+        run: |
+          tar -czf app.tar.gz \
+            --exclude=.git \
+            --exclude=node_modules \
+            --exclude=storage/logs \
+            .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build
+          path: app.tar.gz
+
+
   deploy:
+    needs: build
     runs-on: self-hosted
-    environment: prod
+    environment: prod   # ⏸️ requiere aprobación humana
 
     steps:
       - uses: actions/download-artifact@v4
@@ -16,44 +45,51 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to Production
         run: |
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          RELEASE_DIR=${{ secrets.PROD_APP_PATH }}/releases/$TIMESTAMP
+          RELEASE_DIR=${{ secrets.APP_PATH }}/releases/$TIMESTAMP
 
-          echo "Deploying release: $TIMESTAMP" >> deploy.log
+          echo "Deploying release $TIMESTAMP" >> ${{ secrets.APP_PATH }}/deploy.log
 
-          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "mkdir -p $RELEASE_DIR"
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p $RELEASE_DIR"
 
-          rsync -avz app.tar.gz ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:$RELEASE_DIR
+          rsync -avz app.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$RELEASE_DIR
 
-          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd $RELEASE_DIR &&
             tar -xzf app.tar.gz &&
             rm app.tar.gz &&
 
-            ln -sfn ${{ secrets.PROD_APP_PATH }}/shared/.env .env &&
+            # Symlink del .env compartido
+            ln -sfn ${{ secrets.APP_PATH }}/shared/.env .env &&
+
+            # Migraciones
             php artisan migrate --force &&
 
-            echo \"Release: $TIMESTAMP\" >> ${{ secrets.PROD_APP_PATH }}/deploy.log &&
-
-            ln -sfn $RELEASE_DIR ${{ secrets.PROD_APP_PATH }}/current
+            # Cambio atómico del symlink current
+            ln -sfn $RELEASE_DIR ${{ secrets.APP_PATH }}/current
           "
 
       - name: Health check
         run: |
           sleep 5
-          curl -f ${{ secrets.PROD_HEALTH_URL }}
+          curl -f ${{ secrets.HEALTH_URL }}
 
       - name: Rollback on failure
         if: failure()
         run: |
-          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "
-            cd ${{ secrets.PROD_APP_PATH }}/releases
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.APP_PATH }}/releases
             PREV=\$(ls -t | sed -n '2p')
-            ln -sfn ${{ secrets.PROD_APP_PATH }}/releases/\$PREV ${{ secrets.PROD_APP_PATH }}/current
+            if [ -n \"\$PREV\" ]; then
+              ln -sfn ${{ secrets.APP_PATH }}/releases/\$PREV ${{ secrets.APP_PATH }}/current
+              echo \"Rollback to \$PREV\" >> ${{ secrets.APP_PATH }}/deploy.log
+            else
+              echo \"No previous release to rollback\" >> ${{ secrets.APP_PATH }}/deploy.log
+            fi
           "
