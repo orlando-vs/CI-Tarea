@@ -20,9 +20,14 @@ jobs:
       - name: Build artifact
         run: |
           tar -czf app.tar.gz \
+            --warning=no-file-changed \
+            --ignore-failed-read \
             --exclude=.git \
             --exclude=node_modules \
             --exclude=storage/logs \
+            --exclude=storage/framework/cache \
+            --exclude=storage/framework/sessions \
+            --exclude=storage/framework/views \
             .
 
       - name: Upload artifact
