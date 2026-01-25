@@ -101,8 +101,11 @@ jobs:
       - name: "Gate 3: Build Verification (Vite)"
         run: npm run build
 
-      - name: "Gate 4: Unit Tests (Vitest)"
-        run: npm run test
+      - name: Unit Tests (Vitest)
+        run: |
+          export LARAVEL_BYPASS_ENV_CHECK=1
+          npm run test
+
 
   # ==================================================================
   # JOB 3: RESUMEN DE RESULTADOS
