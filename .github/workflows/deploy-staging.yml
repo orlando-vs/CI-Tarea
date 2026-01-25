@@ -73,10 +73,11 @@ jobs:
             # Symlink de la base de datos SQLite compartida
             mkdir -p database &&
             ln -sfn ${{ secrets.APP_PATH }}/shared/database/database.sqlite database/database.sqlite &&
-
-            php artisan optimize:clear &&
+            
             php artisan migrate --force &&
-
+            
+            php artisan optimize:clear &&
+            
             # Cambio atómico del symlink current
             ln -sfn $RELEASE_DIR ${{ secrets.APP_PATH }}/current
           "
