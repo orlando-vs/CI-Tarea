@@ -37,9 +37,7 @@ jobs:
 
   deploy:
     needs: build
-    # Se usa self-hosted runner porque el servidor staging está en IP privada,
-    # GitHub-hosted runners no pueden acceder a redes locales.
-    # runs-on: ubuntu-latest
+    # Se usa self-hosted runner porque el servidor staging está en IP privada (WSL)
     runs-on: self-hosted
     environment: staging
 
@@ -68,8 +66,18 @@ jobs:
             cd $RELEASE_DIR &&
             tar -xzf app.tar.gz &&
             rm app.tar.gz &&
+
+            # Symlink del .env compartido
+            ln -sfn ${{ secrets.APP_PATH }}/shared/.env .env &&
+
+            # Symlink de la base de datos SQLite compartida
+            mkdir -p database &&
+            ln -sfn ${{ secrets.APP_PATH }}/shared/database/database.sqlite database/database.sqlite &&
+
             php artisan optimize:clear &&
             php artisan migrate --force &&
+
+            # Cambio atómico del symlink current
             ln -sfn $RELEASE_DIR ${{ secrets.APP_PATH }}/current
           "
 
