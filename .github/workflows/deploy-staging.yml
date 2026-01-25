@@ -79,7 +79,7 @@ jobs:
             php artisan optimize:clear &&
 
             # matar servidor anterior
-            pkill -f artisan || true
+            pkill -f "artisan serve" || true
 
             # levantar servidor
             nohup php artisan serve --host=0.0.0.0 --port=8000 > /tmp/laravel.log 2>&1 &
