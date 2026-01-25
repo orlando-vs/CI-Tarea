@@ -1,0 +1,59 @@
+name: CD Production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    environment: prod
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Production
+        run: |
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          RELEASE_DIR=${{ secrets.PROD_APP_PATH }}/releases/$TIMESTAMP
+
+          echo "Deploying release: $TIMESTAMP" >> deploy.log
+
+          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "mkdir -p $RELEASE_DIR"
+
+          rsync -avz app.tar.gz ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:$RELEASE_DIR
+
+          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "
+            cd $RELEASE_DIR &&
+            tar -xzf app.tar.gz &&
+            rm app.tar.gz &&
+
+            ln -sfn ${{ secrets.PROD_APP_PATH }}/shared/.env .env &&
+            php artisan migrate --force &&
+
+            echo \"Release: $TIMESTAMP\" >> ${{ secrets.PROD_APP_PATH }}/deploy.log &&
+
+            ln -sfn $RELEASE_DIR ${{ secrets.PROD_APP_PATH }}/current
+          "
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -f ${{ secrets.PROD_HEALTH_URL }}
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "
+            cd ${{ secrets.PROD_APP_PATH }}/releases
+            PREV=\$(ls -t | sed -n '2p')
+            ln -sfn ${{ secrets.PROD_APP_PATH }}/releases/\$PREV ${{ secrets.PROD_APP_PATH }}/current
+          "
