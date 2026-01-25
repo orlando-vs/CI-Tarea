@@ -77,6 +77,10 @@ jobs:
             php artisan migrate --force &&
             
             php artisan optimize:clear &&
+
+            # Mata proceso y Hace correr el proyecto para la prueba de deploy 
+            pkill -f "php artisan serve" || true
+            nohup php artisan serve --host=0.0.0.0 --port=8000 > /tmp/laravel.log 2>&1 &
             
             # Cambio atómico del symlink current
             ln -sfn $RELEASE_DIR ${{ secrets.APP_PATH }}/current
