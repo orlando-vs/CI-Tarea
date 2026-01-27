@@ -11,8 +11,7 @@ class HealthController
     public function __invoke(): JsonResponse
     {
         try {
-            #DB::connection()->getPdo();
-            DB::select('SELECT * FROM tabla_provocada');
+            DB::connection()->getPdo();
 
             return response()->json([
                 'status' => 'ok',
