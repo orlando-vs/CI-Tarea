@@ -62,7 +62,10 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           RELEASE_DIR=${{ secrets.PROD_APP_PATH }}/releases/$TIMESTAMP
 
-          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "mkdir -p $RELEASE_DIR"
+           ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "
+            echo \"$(date '+%Y-%m-%d %H:%M:%S') Deploying release $TIMESTAMP\" >> ${{ secrets.PROD_APP_PATH }}/logs/deploy.log
+            mkdir -p $RELEASE_DIR
+          "
 
           rsync -avz app.tar.gz ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:$RELEASE_DIR
 
