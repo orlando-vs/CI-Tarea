@@ -19,7 +19,10 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 */
-Route::get('/health', HealthController::class);
+#Route::get('/health', HealthController::class);
+Route::get('/health', function () {
+    return response()->json(['status' => 'FAIL'], 500);
+});
 Route::prefix('v1')->group(function () {
 
     // Auth Público
