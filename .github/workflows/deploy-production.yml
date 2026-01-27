@@ -36,7 +36,6 @@ jobs:
           name: app-build
           path: app.tar.gz
 
-
   deploy:
     needs: build
     runs-on: self-hosted
@@ -59,8 +58,6 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           RELEASE_DIR=${{ secrets.PROD_APP_PATH }}/releases/$TIMESTAMP
 
-          echo "Deploying release $TIMESTAMP" >> ${{ secrets.PROD_APP_PATH }}/deploy.log
-
           ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} "mkdir -p $RELEASE_DIR"
 
           rsync -avz app.tar.gz ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:$RELEASE_DIR
@@ -70,13 +67,24 @@ jobs:
             tar -xzf app.tar.gz &&
             rm app.tar.gz &&
 
-            # Symlink del .env compartido
+            # Symlink .env compartido
             ln -sfn ${{ secrets.PROD_APP_PATH }}/shared/.env .env &&
 
-            # Migraciones
+            # Symlink SQLite compartido
+            mkdir -p database &&
+            ln -sfn ${{ secrets.PROD_APP_PATH }}/shared/database/database.sqlite database/database.sqlite &&
+
             php artisan migrate --force &&
 
-            # Cambio atómico del symlink current
+            php artisan optimize:clear &&
+
+            # matar servidor anterior
+            pkill -f \"artisan serve\" || true &&
+
+            # levantar servidor
+            nohup php artisan serve --host=0.0.0.0 --port=8000 > /tmp/laravel-prod.log 2>&1 &
+
+            # cambio atómico del symlink current
             ln -sfn $RELEASE_DIR ${{ secrets.PROD_APP_PATH }}/current
           "
 
@@ -98,3 +106,4 @@ jobs:
               echo \"No previous release to rollback\" >> ${{ secrets.PROD_APP_PATH }}/deploy.log
             fi
           "
+
