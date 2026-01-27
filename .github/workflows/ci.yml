@@ -2,9 +2,9 @@ name: CI Pipeline Sistema Ventas
 
 on:
   push:
-    branches: ["main", "productos-crud"]
+    branches: ["main", "productos-crud","develop"]
   pull_request:
-    branches: ["main", "productos-crud"]
+    branches: ["main", "productos-crud","develop"]
 
 jobs:
   backend_lint:
