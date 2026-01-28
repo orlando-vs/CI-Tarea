@@ -1,12 +1,9 @@
 name: CD Production
 
 on:
-  workflow_dispatch:
   workflow_run:
     workflows:
-      - "CI Pipeline Sistema Ventas"
-      - "Quality Gates"
-      #- "CD Staging"
+      - "CD Staging"
     types:
       - completed
 

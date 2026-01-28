@@ -1,8 +1,11 @@
 name: CD Staging
 
 on:
-  push:
-    branches: [ "main", "develop" ]
+  workflow_run:
+    workflows:
+      - "Quality Gates"
+    types:
+      - completed
 
 jobs:
   build:
