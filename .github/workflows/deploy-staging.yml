@@ -41,7 +41,7 @@ jobs:
   deploy:
     needs: build
     # Se usa self-hosted runner porque el servidor staging está en IP privada (WSL)
-    runs-on: self-hosted
+    runs-on: [self-hosted,staging]
     environment: staging
 
     steps:
