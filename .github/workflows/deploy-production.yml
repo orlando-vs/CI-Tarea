@@ -31,7 +31,7 @@ jobs:
             --ignore-failed-read \
             --exclude=.git \
             --exclude=node_modules \
-            --exclude=storage \
+             --exclude=storage/logs \
             .
 
       - name: Upload artifact
